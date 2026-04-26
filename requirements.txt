@@ -1,0 +1,5 @@
+py-clob-client-v2
+python-okx
+
+# Optional dev dependencies are declared in pyproject.toml under [project.optional-dependencies].
+

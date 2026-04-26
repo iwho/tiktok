@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "toktok"
+version = "0.1.0"
+description = "A small Polymarket client for fetching market data by slug."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  { name = "hundo" }
+]
+dependencies = [
+  "py-clob-client-v2",
+  "python-okx",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0"
+]
+
+[project.scripts]
+toktok = "toktok.main:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
