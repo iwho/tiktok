@@ -106,7 +106,7 @@ def test_run_trading_loop_places_buy_down_order_and_prints_fill() -> None:
     assert fake_clob_client.placed_orders[0]["size"] == 5.0
     assert fake_clob_client.placed_orders[0]["expiration"] == 1777205110
     assert str(fake_clob_client.placed_orders[0]["order_type"]) == "GTD"
-    assert all(line.startswith("[2026-04-26 12:02:00]") for line in outputs)
+    assert all(line.startswith("[2026-04-26 20:02:00]") for line in outputs)
     assert any("[STARTUP] signer=0xsigner funder=0xfunder signature_type=1" in line for line in outputs)
     balance_lines = [line for line in outputs if "[BALANCE]" in line]
     assert len(balance_lines) >= 2
@@ -195,7 +195,7 @@ def test_run_trading_loop_skips_order_after_first_4_minutes() -> None:
     assert fake_clob_client.allowance_updated == 1
     assert fake_clob_client.balance_fetches == 1
     assert len(fake_clob_client.placed_orders) == 0
-    assert all(line.startswith("[2026-04-26 12:04:30]") for line in outputs)
+    assert all(line.startswith("[2026-04-26 20:04:30]") for line in outputs)
     assert any("[SKIP]" in line for line in outputs)
 
 

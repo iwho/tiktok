@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import time
 from typing import Any, Callable, cast
 
@@ -90,9 +90,14 @@ def run_trading_loop(
     cycle = 0
 
     current_time_fn = now_fn or (lambda: datetime.now(timezone.utc))
+    log_tz = timezone(timedelta(hours=8))
 
     def emit(message: str) -> None:
-        print_fn(f"[{current_time_fn().strftime('%Y-%m-%d %H:%M:%S')}] {message}")
+        log_time = current_time_fn()
+        if log_time.tzinfo is None:
+            log_time = log_time.replace(tzinfo=timezone.utc)
+        log_time = log_time.astimezone(log_tz)
+        print_fn(f"[{log_time.strftime('%Y-%m-%d %H:%M:%S')}] {message}")
 
     emit(
         "[STARTUP] "
