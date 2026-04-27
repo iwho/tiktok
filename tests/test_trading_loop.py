@@ -67,6 +67,21 @@ class FakeClobClient:
         }
 
 
+class FakeOkxClient:
+    def __init__(self) -> None:
+        self.place_orders: list[dict[str, str]] = []
+
+    def get_latest_btc_option_put(self, *, now=None):
+        return {
+            "instId": "BTC-USD-260428-78000-P",
+            "markPx": "0.0061",
+        }
+
+    def place_order(self, **kwargs):
+        self.place_orders.append(kwargs)
+        return {"code": "0", "data": [{"ordId": "okx-1"}]}
+
+
 def test_run_trading_loop_places_buy_down_order_and_prints_fill() -> None:
     config = TradingLoopConfig(private_key="dummy", buy_price=0.2, buy_usd_amount=1.0, poll_interval_seconds=0.0)
     fake_pm_client = FakePolymarketClient()
@@ -101,6 +116,64 @@ def test_run_trading_loop_places_buy_down_order_and_prints_fill() -> None:
     assert any("[PLACE]" in line for line in outputs)
     assert any("[STATUS] order_id=order-1 status=MATCHED filled=5.0" in line for line in outputs)
     assert any("[FILLED]" in line for line in outputs)
+
+
+def test_run_trading_loop_places_sell_put_hedge_after_down_matched() -> None:
+    class DelayedMatchClobClient(FakeClobClient):
+        def __init__(self) -> None:
+            super().__init__()
+            self._status_call_count = 0
+
+        def get_order(self, order_id: str):
+            assert order_id == "order-1"
+            self._status_call_count += 1
+            if self._status_call_count == 1:
+                return {
+                    "id": order_id,
+                    "status": "LIVE",
+                    "filled_size": "0",
+                }
+            return {
+                "id": order_id,
+                "status": "MATCHED",
+                "filled_size": "5",
+            }
+
+    config = TradingLoopConfig(
+        private_key="dummy",
+        buy_price=0.2,
+        buy_usd_amount=1.0,
+        poll_interval_seconds=0.0,
+        okx_delta_hedge_enabled=True,
+        okx_sell_put_size=2,
+    )
+    fake_pm_client = FakePolymarketClient()
+    fake_clob_client = DelayedMatchClobClient()
+    fake_okx_client = FakeOkxClient()
+    outputs: list[str] = []
+
+    run_trading_loop(
+        fake_pm_client,
+        fake_clob_client,
+        config,
+        okx_client=fake_okx_client,
+        max_cycles=2,
+        sleep_fn=lambda _: None,
+        now_fn=lambda: datetime(2026, 4, 26, 12, 2, 0, tzinfo=timezone.utc),
+        print_fn=outputs.append,
+    )
+
+    assert len(fake_okx_client.place_orders) == 1
+    assert fake_okx_client.place_orders[0]["inst_id"] == "BTC-USD-260428-78000-P"
+    assert fake_okx_client.place_orders[0]["side"] == "sell"
+    assert fake_okx_client.place_orders[0]["td_mode"] == "cross"
+    assert fake_okx_client.place_orders[0]["ord_type"] == "limit"
+    assert fake_okx_client.place_orders[0]["cl_ord_id"] == "order-1"
+    assert fake_okx_client.place_orders[0]["px"] == "0.0061"
+    assert fake_okx_client.place_orders[0]["sz"] == 2
+    assert any("[STATUS] order_id=order-1 status=LIVE" in line for line in outputs)
+    assert any("[MATCHED] order_id=order-1" in line for line in outputs)
+    assert any("[OKX-HEDGE] placed sell-put" in line for line in outputs)
 
 
 def test_run_trading_loop_skips_order_after_first_4_minutes() -> None:

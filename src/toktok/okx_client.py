@@ -171,7 +171,7 @@ class OkxClient:
         side: str,
         ord_type: str,
         px: str,
-        sz: str,
+        sz: int,
     ) -> dict[str, Any]:
         if self._trade_api is None:
             raise OKXConfigError("尚未配置交易 API 凭证，无法 place_order。")

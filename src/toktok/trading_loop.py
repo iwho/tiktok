@@ -6,6 +6,7 @@ import time
 from typing import Any, Callable, cast
 
 from py_clob_client_v2 import AssetType, BalanceAllowanceParams, ClobClient, OpenOrderParams, OrderArgs, OrderType
+from toktok.okx_client import OkxClient
 
 CLOB_DEFAULT_HOST = "https://clob.polymarket.com"
 CLOB_DEFAULT_CHAIN_ID = 137
@@ -41,6 +42,10 @@ class TradingLoopConfig:
     chain_id: int = CLOB_DEFAULT_CHAIN_ID
     signature_type: int | None = None
     funder: str | None = None
+    okx_delta_hedge_enabled: bool = True
+    okx_sell_put_size: int = 1
+    okx_td_mode: str = "cross"
+    okx_order_type: str = "limit"
 
 
 def create_authenticated_clob_client(config: TradingLoopConfig) -> ClobClient:
@@ -62,7 +67,8 @@ def run_live_trading_loop(
     print_fn: Callable[[str], None] = _default_print_fn,
 ) -> None:
     clob_client = create_authenticated_clob_client(config)
-    run_trading_loop(polymarket_client, clob_client, config, print_fn=print_fn)
+    okx_trade_client = _create_okx_trade_client_from_env(print_fn=print_fn)
+    run_trading_loop(polymarket_client, clob_client, config, print_fn=print_fn, okx_client=okx_trade_client)
 
 
 def run_trading_loop(
@@ -70,6 +76,7 @@ def run_trading_loop(
     clob_client: Any,
     config: TradingLoopConfig,
     *,
+    okx_client: OkxClient | Any | None = None,
     sleep_fn: Callable[[float], None] = time.sleep,
     now_fn: Callable[[], datetime] | None = None,
     print_fn: Callable[[str], None] = _default_print_fn,
@@ -77,6 +84,9 @@ def run_trading_loop(
 ) -> None:
     tracked_filled_sizes: dict[str, float] = {}
     placed_slugs: set[str] = set()
+    placed_down_order_ids: set[str] = set()
+    hedged_down_order_ids: set[str] = set()
+    order_slug_by_id: dict[str, str] = {}
     cycle = 0
 
     current_time_fn = now_fn or (lambda: datetime.now(timezone.utc))
@@ -135,6 +145,8 @@ def run_trading_loop(
                 order_id = _extract_order_id(response)
                 if order_id:
                     tracked_filled_sizes.setdefault(order_id, 0.0)
+                    placed_down_order_ids.add(order_id)
+                    order_slug_by_id[order_id] = slug
                 placed_slugs.add(slug)
                 emit(
                     _green(
@@ -160,6 +172,18 @@ def run_trading_loop(
                 if "matched" in normalized_status:
                     emit(_red(f"[MATCHED] order_id={order_id} matched={new_filled_size} detail={order}"))
 
+                    # 只在“本策略自己下的 DOWN 单”成交后做一次 put 对冲。
+                    if order_id in placed_down_order_ids and order_id not in hedged_down_order_ids:
+                        _place_sell_put_delta_hedge(
+                            okx_client,
+                            config,
+                            emit=emit,
+                            now=utc_now,
+                            trigger_slug=order_slug_by_id.get(order_id, slug),
+                            down_order_id=order_id,
+                        )
+                        hedged_down_order_ids.add(order_id)
+
                 if new_filled_size > old_filled_size:
                     emit(_yellow(f"[FILLED] order_id={order_id} filled={new_filled_size} detail={order}"))
                 tracked_filled_sizes[order_id] = max(old_filled_size, new_filled_size)
@@ -179,6 +203,57 @@ def _has_matching_buy_order(open_orders: list[dict[str, Any]], token_id: str) ->
         if order_token_id == token_id and side == "BUY":
             return True
     return False
+
+
+def _create_okx_trade_client_from_env(*, print_fn: Callable[[str], None]) -> OkxClient | None:
+    try:
+        return OkxClient.from_env(enable_trade=True)
+    except Exception as exc:
+        print_fn(f"[OKX] 未启用 delta 对冲（无法初始化交易客户端）：{exc}")
+        return None
+
+
+def _place_sell_put_delta_hedge(
+    okx_client: Any,
+    config: TradingLoopConfig,
+    *,
+    emit: Callable[[str], None],
+    now: datetime,
+    trigger_slug: str,
+    down_order_id: str | None,
+) -> None:
+    # 对冲是可选能力：未配置或主动关闭时，主交易流程继续执行。
+    if not config.okx_delta_hedge_enabled:
+        emit(f"[OKX-HEDGE] skip disabled slug={trigger_slug}")
+        return
+
+    if okx_client is None:
+        emit(f"[OKX-HEDGE] skip no-okx-client slug={trigger_slug}")
+        return
+
+    try:
+        latest_put = okx_client.get_latest_btc_option_put(now=now)
+        inst_id = str(_get_first(latest_put, "instId", "inst_id", default="")).strip()
+        mark_px = _to_float(_get_first(latest_put, "markPx", "mark_px", "px", default=0.0))
+
+        if not inst_id or mark_px <= 0:
+            raise ValueError(f"invalid put quote inst_id={inst_id!r} markPx={mark_px!r}")
+
+        # 优先使用 DOWN 的订单号作为 OKX cl_ord_id，便于两边订单追踪关联。
+        okx_client_order_id = (down_order_id or "").strip() or _build_okx_hedge_client_order_id(now)
+
+        order_resp = okx_client.place_order(
+            inst_id=inst_id,
+            td_mode=config.okx_td_mode,
+            cl_ord_id=okx_client_order_id,
+            side="sell",
+            ord_type=config.okx_order_type,
+            px=_format_decimal_for_okx(mark_px),
+            sz=int(config.okx_sell_put_size),
+        )
+        emit(_green(f"[OKX-HEDGE] placed sell-put inst_id={inst_id} px={mark_px} slug={trigger_slug} resp={order_resp}"))
+    except Exception as exc:
+        emit(f"[WARN] okx hedge place failed slug={trigger_slug}: {exc}")
 
 
 def _emit_balance_allowance(clob_client: Any, emit: Callable[[str], None], *, context: str) -> None:
@@ -245,6 +320,11 @@ def _extract_order_id(payload: Any) -> str | None:
     return text or None
 
 
+def _build_okx_hedge_client_order_id(now: datetime) -> str:
+    # 用秒级时间戳生成幂等性较强的客户端订单号，便于排查日志。
+    return f"toktok-{int(now.timestamp())}-sp"
+
+
 def _extract_filled_size(payload: Any) -> float:
     value = _get_first(
         payload,
@@ -273,4 +353,9 @@ def _to_float(value: Any) -> float:
         return float(value)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _format_decimal_for_okx(value: float) -> str:
+    # 价格统一保留 4 位小数，避免不同运行时出现精度展示不一致。
+    return f"{value:.4f}"
 

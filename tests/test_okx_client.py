@@ -102,7 +102,7 @@ def test_okx_client_place_order_requires_credentials(monkeypatch) -> None:
             side="sell",
             ord_type="limit",
             px="0.0100",
-            sz="1",
+            sz=1,
         )
 
 
@@ -121,7 +121,7 @@ def test_okx_client_from_env_builds_trade_api(monkeypatch) -> None:
         side="sell",
         ord_type="limit",
         px="0.0100",
-        sz="1",
+        sz=1,
     )
 
     assert result["data"][0]["kwargs"] == {
@@ -131,7 +131,7 @@ def test_okx_client_from_env_builds_trade_api(monkeypatch) -> None:
         "side": "sell",
         "ordType": "limit",
         "px": "0.0100",
-        "sz": "1",
+        "sz": 1,
     }
 
 
