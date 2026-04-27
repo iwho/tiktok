@@ -154,7 +154,7 @@ def test_get_latest_btc_option_put_uses_t_plus_2_before_or_at_16(monkeypatch) ->
             "code": "0",
             "data": [
                 {"instId": "BTC-USD-260428-77750-P"},
-                {"instId": "BTC-USD-260428-78000-P"},
+                {"instId": "BTC-USD-260428-77900-P"},
                 {"instId": "BTC-USD-260427-77750-P"},
             ],
         },
@@ -169,7 +169,7 @@ def test_get_latest_btc_option_put_uses_t_plus_2_before_or_at_16(monkeypatch) ->
     )
 
     result = client.get_latest_btc_option_put(now=datetime(2026, 4, 26, 16, 0, 0))
-    assert result["instId"] == "BTC-USD-260428-78000-P"
+    assert result["instId"] == "BTC-USD-260428-77900-P"
     assert result["markPx"] == "0.0061"
 
 
@@ -185,7 +185,7 @@ def test_get_latest_btc_option_put_uses_t_plus_1_after_16(monkeypatch) -> None:
             "code": "0",
             "data": [
                 {"instId": "BTC-USD-260427-77750-P"},
-                {"instId": "BTC-USD-260427-78000-P"},
+                {"instId": "BTC-USD-260427-77900-P"},
                 {"instId": "BTC-USD-260428-78000-P"},
             ],
         },
@@ -200,7 +200,7 @@ def test_get_latest_btc_option_put_uses_t_plus_1_after_16(monkeypatch) -> None:
     )
 
     result = client.get_latest_btc_option_put(now=datetime(2026, 4, 26, 17, 0, 0))
-    assert result["instId"] == "BTC-USD-260427-78000-P"
+    assert result["instId"] == "BTC-USD-260427-77900-P"
     assert result["markPx"] == "0.0099"
 
 

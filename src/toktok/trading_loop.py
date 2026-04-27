@@ -244,14 +244,19 @@ def _place_sell_put_delta_hedge(
         # OKX cl_ord_id 限制最多 32 位。
         okx_client_order_id = okx_client_order_id[:32]
 
+        # 打印 OKX 下单参数便于调试
+        px_str = _format_decimal_for_okx(mark_px)
+        sz_int = int(config.okx_sell_put_size)
+        emit(f"[OKX-HEDGE] place_order params: inst_id={inst_id} td_mode={config.okx_td_mode} cl_ord_id={okx_client_order_id} side=sell ord_type={config.okx_order_type} px={px_str} sz={sz_int}")
+
         order_resp = okx_client.place_order(
             inst_id=inst_id,
             td_mode=config.okx_td_mode,
             cl_ord_id=okx_client_order_id,
             side="sell",
             ord_type=config.okx_order_type,
-            px=_format_decimal_for_okx(mark_px),
-            sz=int(config.okx_sell_put_size),
+            px=px_str,
+            sz=sz_int,
         )
         emit(_green(f"[OKX-HEDGE] placed sell-put inst_id={inst_id} px={mark_px} slug={trigger_slug} resp={order_resp}"))
     except Exception as exc:

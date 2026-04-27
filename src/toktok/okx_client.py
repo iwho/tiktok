@@ -140,6 +140,9 @@ class OkxClient:
             except ValueError:
                 continue
 
+            # put 取小于指数价格的，call 取大于指数价格的
+            if opt_type == "P" and strike >= index_price:
+                continue
             if opt_type == "C" and strike <= index_price:
                 continue
 
@@ -149,8 +152,8 @@ class OkxClient:
             label = "Put" if opt_type == "P" else "Call"
             raise OKXError(f"未找到到期日 {exp_time} 的 BTC {label} 期权。")
 
-        # Tie-breaker: when equidistant from index, choose lower strike first.
-        _, atm_inst_id = min(candidate_puts, key=lambda x: (abs(x[0] - index_price), x[0]))
+        # 选择距离指数价格最近的期权。
+        _, atm_inst_id = min(candidate_puts, key=lambda x: abs(x[0] - index_price))
 
         mark_price_response = self.get_mark_price(inst_type="OPTION", inst_family="BTC-USD", inst_id=atm_inst_id)
         mark_items = mark_price_response.get("data")
