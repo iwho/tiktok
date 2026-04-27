@@ -251,7 +251,8 @@ def _place_sell_put_delta_hedge(
         okx_client_order_id = okx_client_order_id[:32]
 
         # 打印 OKX 下单参数便于调试
-        px_str = _format_decimal_for_okx(mark_px)
+        # TODO: 后续改为获取 OKX 实时卖一价，而不是使用 mark price 折算。
+        px_str = _format_decimal_for_okx(mark_px * 0.8)
         sz_int = int(config.okx_sell_put_size)
         emit(f"[OKX-HEDGE] place_order params: inst_id={inst_id} td_mode={config.okx_td_mode} cl_ord_id={okx_client_order_id} side=sell ord_type={config.okx_order_type} px={px_str} sz={sz_int}")
 
