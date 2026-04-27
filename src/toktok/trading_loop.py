@@ -241,6 +241,8 @@ def _place_sell_put_delta_hedge(
 
         # 优先使用 DOWN 的订单号作为 OKX cl_ord_id，便于两边订单追踪关联。
         okx_client_order_id = (down_order_id or "").strip() or _build_okx_hedge_client_order_id(now)
+        # OKX cl_ord_id 限制最多 32 位。
+        okx_client_order_id = okx_client_order_id[:32]
 
         order_resp = okx_client.place_order(
             inst_id=inst_id,
