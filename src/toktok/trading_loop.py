@@ -237,7 +237,7 @@ def _place_sell_put_delta_hedge(
         return
 
     try:
-        latest_put = okx_client.get_latest_btc_option_put(now=now)
+        latest_put = okx_client.get_latest_btc_option_put()
         emit(f"[OKX-HEDGE] latest_put={latest_put}")
         inst_id = str(_get_first(latest_put, "instId", "inst_id", default="")).strip()
         mark_px = _to_float(_get_first(latest_put, "markPx", "mark_px", "px", default=0.0))
