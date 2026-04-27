@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import importlib
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from toktok.exceptions import OKXConfigError, OKXError
@@ -112,8 +112,8 @@ class OkxClient:
         except (TypeError, ValueError) as exc:
             raise OKXError(f"idxPx 不是有效数字: {raw_index_price}") from exc
 
-        current_time = now or datetime.now()
-        target_days = 2 if 0 <= current_time.hour <= 16 else 1
+        current_time = now or datetime.now(timezone(timedelta(hours=8)))
+        target_days = 2 if 0 <= current_time.hour < 16 else 1
         exp_time = (current_time + timedelta(days=target_days)).strftime("%y%m%d")
 
         instruments_response = self.get_instruments(inst_type="OPTION", inst_family="BTC-USD")
