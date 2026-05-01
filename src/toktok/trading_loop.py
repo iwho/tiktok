@@ -237,35 +237,52 @@ def _place_sell_put_delta_hedge(
         return
 
     try:
-        latest_put = okx_client.get_latest_btc_option_put()
-        emit(f"[OKX-HEDGE] latest_put={latest_put}")
-        inst_id = str(_get_first(latest_put, "instId", "inst_id", default="")).strip()
-        mark_px = _to_float(_get_first(latest_put, "markPx", "mark_px", "px", default=0.0))
+        # 优先使用 DOWN 的订单号作为 OKX cl_ord_id 的基础前缀，便于两边订单追踪关联。
+        base_cl_ord_id = (down_order_id or "").strip() or _build_okx_hedge_client_order_id(now)
+        sell_cl_ord_id = _build_okx_child_cl_ord_id(base_cl_ord_id, suffix="sell")
+        buy_cl_ord_id = _build_okx_child_cl_ord_id(base_cl_ord_id, suffix="buy")
+        spread_cl_ord_id = _build_okx_child_cl_ord_id(base_cl_ord_id, suffix="sprd")
 
-        if not inst_id or mark_px <= 0:
-            raise ValueError(f"invalid put quote inst_id={inst_id!r} markPx={mark_px!r}")
-
-        # 优先使用 DOWN 的订单号作为 OKX cl_ord_id，便于两边订单追踪关联。
-        okx_client_order_id = (down_order_id or "").strip() or _build_okx_hedge_client_order_id(now)
-        # OKX cl_ord_id 限制最多 32 位。
-        okx_client_order_id = okx_client_order_id[:32]
-
-        # 打印 OKX 下单参数便于调试
-        # TODO: 后续改为获取 OKX 实时卖一价，而不是使用 mark price 折算。
-        px_str = _format_decimal_for_okx(mark_px * 0.8)
         sz_int = int(config.okx_sell_put_size)
-        emit(f"[OKX-HEDGE] place_order params: inst_id={inst_id} td_mode={config.okx_td_mode} cl_ord_id={okx_client_order_id} side=sell ord_type={config.okx_order_type} px={px_str} sz={sz_int}")
-
-        order_resp = okx_client.place_order(
-            inst_id=inst_id,
-            td_mode=config.okx_td_mode,
-            cl_ord_id=okx_client_order_id,
-            side="sell",
-            ord_type=config.okx_order_type,
-            px=px_str,
-            sz=sz_int,
+        emit(
+            "[OKX-HEDGE] place_put_spread_smart params: "
+            f"td_mode={config.okx_td_mode} ord_type={config.okx_order_type} sz={sz_int} "
+            f"sell_cl_ord_id={sell_cl_ord_id} buy_cl_ord_id={buy_cl_ord_id} spread_cl_ord_id={spread_cl_ord_id}"
         )
-        emit(_green(f"[OKX-HEDGE] placed sell-put inst_id={inst_id} px={mark_px} slug={trigger_slug} resp={order_resp}"))
+
+        hedge_resp = okx_client.place_put_spread_smart(
+            td_mode=config.okx_td_mode,
+            ord_type=config.okx_order_type,
+            sz=sz_int,
+            sell_cl_ord_id=sell_cl_ord_id,
+            buy_cl_ord_id=buy_cl_ord_id,
+            spread_cl_ord_id=spread_cl_ord_id,
+            now=now,
+        )
+
+        mode = str(_get_first(hedge_resp, "mode", default="unknown")).lower()
+        sell_inst_id = str(_get_first(hedge_resp, "sell_inst_id", default=""))
+        buy_inst_id = str(_get_first(hedge_resp, "buy_inst_id", default=""))
+
+        if mode == "spread":
+            sprd_id = _get_first(hedge_resp, "sprd_id", default="")
+            emit(
+                _green(
+                    "[OKX-HEDGE] placed put-spread mode=spread "
+                    f"sprd_id={sprd_id} sell_inst_id={sell_inst_id} buy_inst_id={buy_inst_id} "
+                    f"slug={trigger_slug} resp={hedge_resp}"
+                )
+            )
+        elif mode == "leg":
+            emit(
+                _yellow(
+                    "[OKX-HEDGE] placed put-spread mode=leg "
+                    f"sell_inst_id={sell_inst_id} buy_inst_id={buy_inst_id} "
+                    f"slug={trigger_slug} resp={hedge_resp}"
+                )
+            )
+        else:
+            emit(f"[OKX-HEDGE] placed put-spread mode={mode} slug={trigger_slug} resp={hedge_resp}")
     except Exception as exc:
         emit(f"[WARN] okx hedge place failed slug={trigger_slug}: {exc}")
 
@@ -339,6 +356,13 @@ def _build_okx_hedge_client_order_id(now: datetime) -> str:
     return f"toktok-{int(now.timestamp())}-sp"
 
 
+def _build_okx_child_cl_ord_id(base_id: str, *, suffix: str) -> str:
+    # OKX cl_ord_id 限制最多 32 位，预留连接符和后缀长度。
+    clipped_base = (base_id or "toktok").strip() or "toktok"
+    max_base_len = max(1, 32 - len(suffix))
+    return f"{clipped_base[:max_base_len]}{suffix}"
+
+
 def _extract_filled_size(payload: Any) -> float:
     value = _get_first(
         payload,
@@ -369,7 +393,4 @@ def _to_float(value: Any) -> float:
         return 0.0
 
 
-def _format_decimal_for_okx(value: float) -> str:
-    # 价格统一保留 4 位小数，避免不同运行时出现精度展示不一致。
-    return f"{value:.4f}"
 

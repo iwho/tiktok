@@ -69,17 +69,17 @@ class FakeClobClient:
 
 class FakeOkxClient:
     def __init__(self) -> None:
-        self.place_orders: list[dict[str, str]] = []
+        self.place_put_spread_smart_calls: list[dict[str, object]] = []
 
-    def get_latest_btc_option_put(self, *, now=None):
+    def place_put_spread_smart(self, **kwargs):
+        self.place_put_spread_smart_calls.append(kwargs)
         return {
-            "instId": "BTC-USD-260428-78000-P",
-            "markPx": "0.0061",
+            "mode": "spread",
+            "sprd_id": "SPRD-BTC-PUT-1",
+            "sell_inst_id": "BTC-USD-260428-78000-P",
+            "buy_inst_id": "BTC-USD-260428-76000-P",
+            "spread": {"code": "0", "data": [{"ordId": "okx-sprd-1"}]},
         }
-
-    def place_order(self, **kwargs):
-        self.place_orders.append(kwargs)
-        return {"code": "0", "data": [{"ordId": "okx-1"}]}
 
 
 def test_run_trading_loop_places_buy_down_order_and_prints_fill() -> None:
@@ -163,17 +163,19 @@ def test_run_trading_loop_places_sell_put_hedge_after_down_matched() -> None:
         print_fn=outputs.append,
     )
 
-    assert len(fake_okx_client.place_orders) == 1
-    assert fake_okx_client.place_orders[0]["inst_id"] == "BTC-USD-260428-78000-P"
-    assert fake_okx_client.place_orders[0]["side"] == "sell"
-    assert fake_okx_client.place_orders[0]["td_mode"] == "cross"
-    assert fake_okx_client.place_orders[0]["ord_type"] == "limit"
-    assert fake_okx_client.place_orders[0]["cl_ord_id"] == "order-1"
-    assert fake_okx_client.place_orders[0]["px"] == "0.0061"
-    assert fake_okx_client.place_orders[0]["sz"] == 2
+    assert len(fake_okx_client.place_put_spread_smart_calls) == 1
+    call = fake_okx_client.place_put_spread_smart_calls[0]
+    assert call["td_mode"] == "cross"
+    assert call["ord_type"] == "limit"
+    assert call["sz"] == 2
+    assert call["sell_cl_ord_id"] == "order-1-sell"
+    assert call["buy_cl_ord_id"] == "order-1-buy"
+    assert call["spread_cl_ord_id"] == "order-1-sprd"
+    assert call["now"] == datetime(2026, 4, 26, 12, 2, 0, tzinfo=timezone.utc)
     assert any("[STATUS] order_id=order-1 status=LIVE" in line for line in outputs)
     assert any("[MATCHED] order_id=order-1" in line for line in outputs)
-    assert any("[OKX-HEDGE] placed sell-put" in line for line in outputs)
+    assert any("[OKX-HEDGE] place_put_spread_smart params:" in line for line in outputs)
+    assert any("[OKX-HEDGE] placed put-spread mode=spread" in line for line in outputs)
 
 
 def test_run_trading_loop_skips_order_after_first_4_minutes() -> None:
