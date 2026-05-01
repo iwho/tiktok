@@ -41,7 +41,7 @@ def test_okx_public_mark_price_print_only() -> None:
     result = client.get_mark_price(
         inst_type="OPTION",
         inst_family="BTC-USD",
-        inst_id="BTC-USD-260427-77750-C",
+        inst_id="BTC-USD-260502-76750-P",
     )
     print(json.dumps(result, indent=2))
 

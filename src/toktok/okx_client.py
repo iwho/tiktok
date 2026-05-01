@@ -440,6 +440,7 @@ class OkxClient:
             if isinstance(ticker_resp, dict) and ticker_resp.get("code") in (None, "0", 0):
                 t_data = ticker_resp.get("data") or []
                 if t_data and isinstance(t_data[0], dict):
+                    print(f"Spread ticker data: {t_data[0]}")  # 调试输出价差 ticker 数据
                     spread_px = str(t_data[0].get("askPx") or t_data[0].get("last") or "")
 
             spread_response = self.place_put_spread_via_spread_api(
