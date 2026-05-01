@@ -193,7 +193,7 @@ def run_trading_loop(
                     emit(_yellow(f"[FILLED] order_id={order_id} filled={new_filled_size} detail={order}"))
                 tracked_filled_sizes[order_id] = max(old_filled_size, new_filled_size)
 
-                if any(keyword in normalized_status for keyword in ("matched", "canceled", "cancelled", "expired", "rejected")):
+                if any(keyword in normalized_status for keyword in ("matched", "canceled", "cancelled", "expired", "rejected", "invalid")):
                     tracked_filled_sizes.pop(order_id, None)
         except Exception as exc:
             emit(f"[WARN] trading loop cycle failed: {exc}")
