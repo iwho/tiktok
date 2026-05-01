@@ -222,7 +222,7 @@ class OkxClient:
             raise OKXError(f"未找到到期日 {exp_time} 的 BTC Put 期权合约。")
 
         strike, inst_id = min(candidates, key=lambda x: abs(x[0] - target_strike))
-    return inst_id, strike
+        return inst_id, strike
 
     def place_put_spread(
         self,
