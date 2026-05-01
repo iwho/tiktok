@@ -222,7 +222,7 @@ class OkxClient:
             raise OKXError(f"未找到到期日 {exp_time} 的 BTC Put 期权合约。")
 
         strike, inst_id = min(candidates, key=lambda x: abs(x[0] - target_strike))
-        return inst_id, strike
+    return inst_id, strike
 
     def place_put_spread(
         self,
@@ -434,34 +434,34 @@ class OkxClient:
         sprd_id = self.get_put_spread_id(sell_inst_id=sell_inst_id, buy_inst_id=buy_inst_id)
         print(f"查询官方价差产品: sell_inst_id={sell_inst_id}, buy_inst_id={buy_inst_id}, sprd_id={sprd_id}")  # 调试输出查询结果
 
-        if sprd_id:
-            # 查询价差 ticker 获取报价
-            ticker_resp = self._spread_api.get_ticker(sprdId=sprd_id)
-            spread_px = ""
-            if isinstance(ticker_resp, dict) and ticker_resp.get("code") in (None, "0", 0):
-                t_data = ticker_resp.get("data") or []
-                if t_data and isinstance(t_data[0], dict):
-                    print(f"Spread ticker data: {t_data[0]}")  # 调试输出价差 ticker 数据
-                    spread_px = str(t_data[0].get("askPx") or t_data[0].get("last") or "")
+        # if sprd_id:
+        #     # 查询价差 ticker 获取报价
+        #     ticker_resp = self._spread_api.get_ticker(sprdId=sprd_id)
+        #     spread_px = ""
+        #     if isinstance(ticker_resp, dict) and ticker_resp.get("code") in (None, "0", 0):
+        #         t_data = ticker_resp.get("data") or []
+        #         if t_data and isinstance(t_data[0], dict):
+        #             print(f"Spread ticker data: {t_data[0]}")  # 调试输出价差 ticker 数据
+        #             spread_px = str(t_data[0].get("askPx") or t_data[0].get("last") or "")
 
-            spread_response = self.place_put_spread_via_spread_api(
-                sprd_id=sprd_id,
-                cl_ord_id=spread_cl_ord_id,
-                side="sell",
-                ord_type=ord_type,
-                sz=sz,
-                px=spread_px,
-            )
-            return {
-                "mode": "spread",
-                "sprd_id": sprd_id,
-                "spread": spread_response,
-                "sell_inst_id": sell_inst_id,
-                "sell_strike": sell_strike,
-                "buy_inst_id": buy_inst_id,
-                "buy_strike": buy_strike,
-                "index_price": index_price,
-            }
+        #     spread_response = self.place_put_spread_via_spread_api(
+        #         sprd_id=sprd_id,
+        #         cl_ord_id=spread_cl_ord_id,
+        #         side="sell",
+        #         ord_type=ord_type,
+        #         sz=sz,
+        #         px=spread_px,
+        #     )
+        #     return {
+        #         "mode": "spread",
+        #         "sprd_id": sprd_id,
+        #         "spread": spread_response,
+        #         "sell_inst_id": sell_inst_id,
+        #         "sell_strike": sell_strike,
+        #         "buy_inst_id": buy_inst_id,
+        #         "buy_strike": buy_strike,
+        #         "index_price": index_price,
+        #     }
 
         # 3. 回退：两腿分别下单
         return self.place_put_spread(

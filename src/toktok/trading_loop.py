@@ -286,9 +286,6 @@ def _place_sell_put_delta_hedge(
     except Exception as exc:
         emit(f"[WARN] okx hedge place failed slug={trigger_slug}: {exc}")
 
-    emit('debuging, please check the result, exit')
-    exit(0)
-
 
 def _emit_balance_allowance(clob_client: Any, emit: Callable[[str], None], *, context: str) -> None:
     try:
