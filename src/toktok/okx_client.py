@@ -296,8 +296,8 @@ class OkxClient:
                 raise OKXError(f"get_mark_price 缺少 markPx 字段: {inst_id}")
             return str(mark_px)
 
-        sell_px = _get_mark_px(sell_inst_id) * 0.9
-        buy_px = _get_mark_px(buy_inst_id) * 1.1
+        sell_px = f"{float(_get_mark_px(sell_inst_id)) * 0.9:.4f}"
+        buy_px = f"{float(_get_mark_px(buy_inst_id)) * 1.1:.4f}"
 
         # 6. 下单：先卖（sell put），再买（buy put）
         sell_response = self.place_order(
