@@ -115,7 +115,7 @@ class OkxClient:
         except (TypeError, ValueError) as exc:
             raise OKXError(f"idxPx 不是有效数字: {raw_index_price}") from exc
 
-        current_time = now or datetime.now(timezone(timedelta(hours=8)))
+        current_time = datetime.now(timezone(timedelta(hours=8)))
         exp_time = (current_time + timedelta(days=1)).strftime("%y%m%d")
 
         instruments_response = self.get_instruments(inst_type="OPTION", inst_family="BTC-USD")
@@ -261,7 +261,7 @@ class OkxClient:
             raise OKXError(f"idxPx 不是有效数字: {raw_index_price}") from exc
 
         # 2. 计算到期日
-        current_time = now or datetime.now(timezone(timedelta(hours=8)))
+        current_time = datetime.now(timezone(timedelta(hours=8)))
         exp_time = (current_time + timedelta(days=1)).strftime("%y%m%d")
 
         # 3. 获取合约列表
@@ -411,7 +411,7 @@ class OkxClient:
         except (TypeError, ValueError) as exc:
             raise OKXError(f"idxPx 不是有效数字: {raw_index_price}") from exc
 
-        current_time = now or datetime.now(timezone(timedelta(hours=8)))
+        current_time = datetime.now(timezone(timedelta(hours=8)))
         exp_time = (current_time + timedelta(days=1)).strftime("%y%m%d")
 
         instruments_response = self.get_instruments(inst_type="OPTION", inst_family="BTC-USD")
