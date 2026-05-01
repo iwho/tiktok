@@ -296,8 +296,8 @@ class OkxClient:
                 raise OKXError(f"get_mark_price 缺少 markPx 字段: {inst_id}")
             return str(mark_px)
 
-        sell_px = _get_mark_px(sell_inst_id)
-        buy_px = _get_mark_px(buy_inst_id)
+        sell_px = _get_mark_px(sell_inst_id) * 0.9
+        buy_px = _get_mark_px(buy_inst_id) * 1.1
 
         # 6. 下单：先卖（sell put），再买（buy put）
         sell_response = self.place_order(
@@ -432,6 +432,7 @@ class OkxClient:
 
         # 2. 查询官方价差产品
         sprd_id = self.get_put_spread_id(sell_inst_id=sell_inst_id, buy_inst_id=buy_inst_id)
+        print(f"查询官方价差产品: sell_inst_id={sell_inst_id}, buy_inst_id={buy_inst_id}, sprd_id={sprd_id}")  # 调试输出查询结果
 
         if sprd_id:
             # 查询价差 ticker 获取报价
